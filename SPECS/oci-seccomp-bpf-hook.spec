@@ -28,7 +28,7 @@ go build -buildmode pie -compiler gc -tags="rpm_crashtraceback libtrust_openssl 
 ExclusiveArch: %{go_arches}
 
 Name: oci-seccomp-bpf-hook
-Version: 1.2.8
+Version: 1.2.9
 Release: 1%{?dist}
 Summary: OCI Hook to generate seccomp json files based on EBF syscalls used by container
 License: ASL 2.0
@@ -111,6 +111,10 @@ export GOPATH=%{buildroot}/%{gopath}:$(pwd)/vendor:%{gopath}
 %{_mandir}/man1/%{name}.1*
 
 %changelog
+* Wed Apr 19 2023 Jindrich Novy <jnovy@redhat.com> - 1.2.9-1
+- update to https://github.com/containers/oci-seccomp-bpf-hook/releases/tag/v1.2.9
+- Related: #2176063
+
 * Tue Oct 18 2022 Jindrich Novy <jnovy@redhat.com> - 1.2.8-1
 - update to https://github.com/containers/oci-seccomp-bpf-hook/releases/tag/v1.2.8
 - Related: #2124478
