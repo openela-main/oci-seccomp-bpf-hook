@@ -1,41 +1,27 @@
-%global with_check 0
+%global with_debug 1
 
+%if 0%{?with_debug}
 %global _find_debuginfo_dwz_opts %{nil}
 %global _dwz_low_mem_die_limit 0
-
-# https://bugzilla.redhat.com/show_bug.cgi?id=1904567
-%global _lto_cflags %%{nil}
-
-%if 0%{?rhel} > 7 && ! 0%{?fedora}
-%define gobuild(o:) \
-go build -buildmode pie -compiler gc -tags="rpm_crashtraceback libtrust_openssl ${BUILDTAGS:-}" -ldflags "${LDFLAGS:-} -linkmode=external -compressdwarf=false -B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \\n') -extldflags '%__global_ldflags'" -a -v %{?**};
 %else
-%if ! 0%{?gobuild:1}
-%define gobuild(o:) GO111MODULE=off go build -buildmode pie -compiler gc -tags="rpm_crashtraceback ${BUILDTAGS:-}" -ldflags "${LDFLAGS:-} -linkmode=external -B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \\n') -extldflags '-Wl,-z,relro -Wl,-z,now -specs=/usr/lib/rpm/redhat/redhat-hardened-ld '" -a -v %{?**};
-%endif
+%global debug_package   %{nil}
 %endif
 
-%global provider github
-%global provider_tld com
-%global project containers
-%global repo oci-seccomp-bpf-hook
-# https://github.com/containers/oci-seccomp-bpf-hook
-%global provider_prefix %{provider}.%{provider_tld}/%{project}/%{repo}
-%global import_path %{provider_prefix}
-%global git0 https://%{provider}.%{provider_tld}/%{project}/%{repo}
-
-# https://fedoraproject.org/wiki/PackagingDrafts/Go#Go_Language_Architectures
-ExclusiveArch: %{go_arches}
+# use the same arch definitions as present in the bcc package
+ExclusiveArch:  x86_64 %{power64} aarch64 s390x armv7hl
 
 Name: oci-seccomp-bpf-hook
-Version: 1.2.10
-Release: 3%{?dist}
+Version: 1.2.11
+License: Apache-2.0 and BSD-2-Clause and BSD-3-Clause and ISC and MIT
+Release: 1%{?dist}
+ExclusiveArch: %{golang_arches_future}
 Summary: OCI Hook to generate seccomp json files based on EBF syscalls used by container
-License: ASL 2.0
-URL: %{git0}
-Source0: %{git0}/archive/v%{version}.tar.gz
+URL: https://github.com/containers/oci-seccomp-bpf-hook
+# Tarball fetched from upstream
+Source0: https://github.com/containers/oci-seccomp-bpf-hook/archive/v%{version}.tar.gz
 BuildRequires: golang
-BuildRequires: /usr/bin/go-md2man
+BuildRequires: go-md2man
+BuildRequires: go-rpm-macros
 BuildRequires: glib2-devel
 BuildRequires: glibc-devel
 BuildRequires: bcc-devel
@@ -43,47 +29,79 @@ BuildRequires: git
 BuildRequires: gpgme-devel
 BuildRequires: libseccomp-devel
 BuildRequires: make
-Conflicts: crun < 0.17
+Requires: bcc
 Enhances: podman
 Enhances: cri-o
+# vendored libraries
+# awk '{print "Provides: bundled(golang("$1")) = "$2}' go.mod | sort | uniq | sed -e 's/-/_/g' -e '/bundled(golang())/d' -e '/bundled(golang(go\|module\|replace\|require))/d'
+Provides: bundled(golang(github.com/iovisor/gobpf)) = v0.2.0
+Provides: bundled(golang(github.com/opencontainers/runtime_spec)) = v1.0.3_0.20200728170252_4d89ac9fbff6
+Provides: bundled(golang(github.com/seccomp/containers_golang)) = v0.6.0
+Provides: bundled(golang(github.com/seccomp/libseccomp_golang)) = v0.9.1
+Provides: bundled(golang(github.com/sirupsen/logrus)) = v1.8.1
+Provides: bundled(golang(github.com/stretchr/testify)) = v1.4.0
 
 %description
 %{summary}
-%{repo} provides a library for applications looking to use
+%{name} provides a library for applications looking to use
 the Container Pod concept popularized by Kubernetes.
 
+%package tests
+Summary: Tests for %{name}
+
+Requires: %{name} = %{version}-%{release}
+Requires: podman
+
+%description tests
+%{summary}
+
+This subpackage contains system tests for %{name}. It's only meant for gating
+tests. End user / customer usage cases are not supported.
+
 %prep
-%autosetup -Sgit
-sed -i '/$(MAKE) -C docs install/d' Makefile
-sed -i 's/HOOK_BIN_DIR/\%{_usr}\/libexec\/oci\/hooks.d/' %{name}.json
+%autosetup -Sgit -n %{name}-%{version}
+sed -i 's;HOOK_BIN_DIR;%{_libexecdir}/oci/hooks.d;' %{name}.json
 sed -i '/$(HOOK_DIR)\/%{name}.json/d' Makefile
 
 %build
+%set_build_flags
+export CGO_CFLAGS=$CFLAGS
+# These extra flags present in $CFLAGS have been skipped for now as they break the build
+CGO_CFLAGS=$(echo $CGO_CFLAGS | sed 's/-flto=auto//g')
+CGO_CFLAGS=$(echo $CGO_CFLAGS | sed 's/-Wp,D_GLIBCXX_ASSERTIONS//g')
+CGO_CFLAGS=$(echo $CGO_CFLAGS | sed 's/-specs=\/usr\/lib\/rpm\/redhat\/redhat-annobin-cc1//g')
+
+%ifarch x86_64
+export CGO_CFLAGS+=" -m64 -mtune=generic -fcf-protection=full"
+%endif
+
 export GO111MODULE=off
 export GOPATH=$(pwd):$(pwd)/_build
-export CGO_CFLAGS="%{optflags} -D_GNU_SOURCE -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64"
 
 mkdir _build
-pushd _build
-mkdir -p src/%{provider}.%{provider_tld}/%{project}
-ln -s ../../../../ src/%{import_path}
-popd
+cd _build
+mkdir -p src/github.com/containers/
+ln -s ../../../../ src/github.com/containers/oci-seccomp-bpf-hook
+cd ..
 ln -s vendor src
 
 export GOPATH=$(pwd)/_build:$(pwd)
 export LDFLAGS="-X main.version=%{version}"
-%gobuild -o bin/%{name} %{import_path}
+%gobuild -o bin/%{name} github.com/containers/oci-seccomp-bpf-hook
 
-pushd docs
+cd docs
 go-md2man -in %{name}.md -out %{name}.1
-popd
+cd ..
 
 %install
 %{__make} DESTDIR=%{buildroot} PREFIX=%{_prefix} install-nobuild
 %{__make} DESTDIR=%{buildroot} PREFIX=%{_prefix} GOMD2MAN=go-md2man -C docs install-nobuild
 
+install -d -p %{buildroot}/%{_datadir}/%{name}/test/system
+cp -pav test/. %{buildroot}/%{_datadir}/%{name}/test/system
+
 %check
-%if 0%{?with_check}
+%if 0%{?with_check} && 0%{?with_unit_test} && 0%{?with_devel}
 # Since we aren't packaging up the vendor directory we need to link
 # back to it somehow. Hack it up so that we can add the vendor
 # directory from BUILD dir as a gopath to be searched when executing
@@ -96,7 +114,7 @@ export GOPATH=%{buildroot}/%{gopath}:$(pwd)/vendor:%{gopath}
 %global gotest go test
 %endif
 
-%gotest %{import_path}/src/%{name}
+%gotest github.com/containers/oci-seccomp-bpf-hook/src/%{name}
 %endif
 
 #define license tag if not already defined
@@ -110,7 +128,16 @@ export GOPATH=%{buildroot}/%{gopath}:$(pwd)/vendor:%{gopath}
 %{_datadir}/containers/oci/hooks.d/%{name}.json
 %{_mandir}/man1/%{name}.1*
 
+%files tests
+%license LICENSE
+%{_datadir}/%{name}/test
+
 %changelog
+* Wed Apr 09 2025 Jindrich Novy <jnovy@redhat.com> - 1.2.11-1
+- update to https://github.com/containers/oci-seccomp-bpf-hook/releases/tag/v1.2.11
+- simplify spec
+- Resolves: RHEL-85582
+
 * Wed Dec 04 2024 Jindrich Novy <jnovy@redhat.com> - 1.2.10-3
 - rebuild
 - Resolves: RHEL-69918
