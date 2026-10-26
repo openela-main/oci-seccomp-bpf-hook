@@ -13,7 +13,7 @@ ExclusiveArch:  x86_64 %{power64} aarch64 s390x armv7hl
 Name: oci-seccomp-bpf-hook
 Version: 1.2.11
 License: Apache-2.0 and BSD-2-Clause and BSD-3-Clause and ISC and MIT
-Release: 1%{?dist}
+Release: 3%{?dist}
 ExclusiveArch: %{golang_arches_future}
 Summary: OCI Hook to generate seccomp json files based on EBF syscalls used by container
 URL: https://github.com/containers/oci-seccomp-bpf-hook
@@ -133,7 +133,15 @@ export GOPATH=%{buildroot}/%{gopath}:$(pwd)/vendor:%{gopath}
 %{_datadir}/%{name}/test
 
 %changelog
-* Wed Apr 09 2025 Jindrich Novy <jnovy@redhat.com> - 1.2.11-1
+* Wed Oct 21 2026 Jindrich Novy <jnovy@redhat.com> - 1.2.11-3
+- Rebuild for CVE-2026-111943
+- Resolves: RHEL-287608
+
+* Wed Jul 08 2026 Jindrich Novy <jnovy@redhat.com> - 1.2.11-2
+- rebuild with golang to fix CVE-2026-33811
+- Resolves: RHEL-187133
+
+* Thu Apr 03 2025 Jindrich Novy <jnovy@redhat.com> - 1.2.11-1
 - update to https://github.com/containers/oci-seccomp-bpf-hook/releases/tag/v1.2.11
 - simplify spec
-- Resolves: RHEL-85581
+- Resolves: RHEL-85838
