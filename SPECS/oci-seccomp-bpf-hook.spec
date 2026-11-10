@@ -11,9 +11,9 @@
 ExclusiveArch:  x86_64 %{power64} aarch64 s390x armv7hl
 
 Name: oci-seccomp-bpf-hook
-Version: 1.2.11
+Version: 1.3.0
 License: Apache-2.0 and BSD-2-Clause and BSD-3-Clause and ISC and MIT
-Release: 3%{?dist}
+Release: 2%{?dist}
 ExclusiveArch: %{golang_arches_future}
 Summary: OCI Hook to generate seccomp json files based on EBF syscalls used by container
 URL: https://github.com/containers/oci-seccomp-bpf-hook
@@ -34,12 +34,13 @@ Enhances: podman
 Enhances: cri-o
 # vendored libraries
 # awk '{print "Provides: bundled(golang("$1")) = "$2}' go.mod | sort | uniq | sed -e 's/-/_/g' -e '/bundled(golang())/d' -e '/bundled(golang(go\|module\|replace\|require))/d'
-Provides: bundled(golang(github.com/iovisor/gobpf)) = v0.2.0
-Provides: bundled(golang(github.com/opencontainers/runtime_spec)) = v1.0.3_0.20200728170252_4d89ac9fbff6
-Provides: bundled(golang(github.com/seccomp/containers_golang)) = v0.6.0
-Provides: bundled(golang(github.com/seccomp/libseccomp_golang)) = v0.9.1
-Provides: bundled(golang(github.com/sirupsen/logrus)) = v1.8.1
-Provides: bundled(golang(github.com/stretchr/testify)) = v1.4.0
+Provides: bundled(golang(github.com/iovisor/gobpf)) = v0.2.1_0.20221005153822_16120a1bf4d4
+Provides: bundled(golang(github.com/opencontainers/runtime_spec)) = v1.3.0
+Provides: bundled(golang(github.com/seccomp/libseccomp_golang)) = v0.11.1
+Provides: bundled(golang(github.com/sirupsen/logrus)) = v1.9.4
+Provides: bundled(golang(github.com/stretchr/testify)) = v1.11.1
+Provides: bundled(golang(go.podman.io/common)) = v0.67.0
+Provides: bundled(golang(go.podman.io/storage)) = v1.62.0
 
 %description
 %{summary}
@@ -133,13 +134,13 @@ export GOPATH=%{buildroot}/%{gopath}:$(pwd)/vendor:%{gopath}
 %{_datadir}/%{name}/test
 
 %changelog
-* Wed Oct 21 2026 Jindrich Novy <jnovy@redhat.com> - 1.2.11-3
-- Rebuild for CVE-2026-111943
-- Resolves: RHEL-287608
+* Tue Aug 18 2026 Jindrich Novy <jnovy@redhat.com> - 1.3.0-2
+- Rebuild for golang-1.26.6 CVE fixes (CVE-2026-33811) - Resolves: RHEL-187182
+  RHEL-212011
 
-* Wed Jul 08 2026 Jindrich Novy <jnovy@redhat.com> - 1.2.11-2
-- rebuild with golang to fix CVE-2026-33811
-- Resolves: RHEL-187133
+* Fri Jul 17 2026 Jindrich Novy <jnovy@redhat.com> - 1.3.0-1
+- update to https://github.com/containers/oci-seccomp-bpf-hook/releases/tag/v1.3.0
+- Resolves: RHEL-212011
 
 * Thu Apr 03 2025 Jindrich Novy <jnovy@redhat.com> - 1.2.11-1
 - update to https://github.com/containers/oci-seccomp-bpf-hook/releases/tag/v1.2.11
